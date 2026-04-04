@@ -15,6 +15,7 @@
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="icon-512.png">
     <link rel="icon" type="image/png" href="icon-512.png">
+    <link
         href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap"
         rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
@@ -516,7 +517,7 @@
             <h2>Джерело Даних</h2>
 
             <div class="no-api-warning" id="apiWarning">
-                🤖 Groq API ключ не налаштовано. Працює лише ручний режим.<br>
+                🤖 Google Gemini API ключ не налаштовано. Працює лише ручний режим.<br>
                 <a href="#" style="color:var(--warning)" onclick="openSettings()">Налаштувати зараз</a>
             </div>
 
@@ -571,7 +572,7 @@
                 <p id="loaderText"
                     style="color: var(--primary); font-weight: 600; font-family: 'JetBrains Mono', monospace;">ОБРОБКА
                     ЗОБРАЖЕННЯ...</p>
-                <p style="color: var(--text-muted); font-size: 0.8rem; text-align: center;">Llama Vision аналізує
+                <p style="color: var(--text-muted); font-size: 0.8rem; text-align: center;">Gemini Vision API аналізує
                     частоти, маркери та форму сигналу</p>
             </div>
 
@@ -594,11 +595,11 @@
         <div class="modal">
             <h2 style="margin-bottom: 1.5rem; border:none;">Налаштування API</h2>
             <div class="form-group">
-                <label for="apiKey">Groq API Key (Llama 3)</label>
-                <input type="password" id="apiKey" placeholder="gsk_..." autocomplete="off">
+                <label for="apiKey">Google Gemini API Key</label>
+                <input type="password" id="apiKey" placeholder="AIzaSy..." autocomplete="off">
                 <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem;">
-                    Отримайте ключ у <a href="https://console.groq.com/keys" target="_blank"
-                        style="color: var(--primary)">Groq Console</a>. Ключ не зберігається в кеші і зникає після
+                    Отримайте ключ у <a href="https://aistudio.google.com/app/apikey" target="_blank"
+                        style="color: var(--primary)">Google AI Studio</a>. Ключ не зберігається в кеші і зникає після
                     оновлення сторінки.
                 </p>
             </div>
@@ -713,10 +714,10 @@
                 rec: 'Робота мобільного РЕБ. Перешкоди зв\'язку.'
             },
             {
-                id: 'ew_gps_spoofing', name: 'РЕБ (Спуфінг GNSS / GPS)', category: 'EW', threat: 'warning',
-                ranges: [[1550, 1610], [1200, 1250]], bw: [5, 30], type: 'Широкий Шум / BPSK',
-                desc: 'Аномально потужний пік або широка смуга на частотах супутникової навігації (L1 ~1575 МГц, L2 ~1227 МГц).',
-                rec: 'Підміна або придушення координат. Дрони можуть втратити орієнтацію (злетіти вбік).'
+                id: 'nav_gps', name: 'Навігація (GPS L1 / ГЛОНАСС)', category: 'NAV', threat: 'info',
+                ranges: [[1570, 1605]], bw: [10, 30], type: 'Широкий BPSK',
+                desc: 'Сигнали супутників. Якщо є величезний горб - це підміна/РЕБ.',
+                rec: 'Можливий вплив на точність координат (якщо сигнал занадто потужний).'
             },
             {
                 id: 'sig_dmr', name: 'DMR / MOTOTRBO (Рації)', category: 'COMMS', threat: 'INFO',
@@ -729,14 +730,13 @@
         // --- APP STATE ---
         let currentFileBase64 = null;
         let isManualMode = false;
-        let lastApiCallTime = 0;
         let currentApiKey = '';
 
         // --- INITIALIZATION ---
         document.addEventListener('DOMContentLoaded', async () => {
             // Очищаємо поле та кеш
             document.getElementById('apiKey').value = '';
-            try { localStorage.removeItem('gemini_api_key'); localStorage.clear(); } catch (e) { }
+            try { localStorage.removeItem('gemini_api_key'); localStorage.clear(); } catch(e) {}
 
             // Послідовна спроба отримати ключ
             const tryFetchKeys = async () => {
@@ -745,8 +745,8 @@
                     const apiResp = await fetch('/api/env');
                     if (apiResp.ok) {
                         const config = await apiResp.json();
-                        if (config.GROQ_API_KEY && config.GROQ_API_KEY.trim() !== '') {
-                            return config.GROQ_API_KEY.trim();
+                        if (config.GEMINI_API_KEY && config.GEMINI_API_KEY.trim() !== '') {
+                            return config.GEMINI_API_KEY.trim();
                         }
                     }
                 } catch (e) { }
@@ -756,7 +756,7 @@
                     const envResp = await fetch('./.env');
                     if (envResp.ok) {
                         const envText = await envResp.text();
-                        const match = envText.match(/GROQ_API_KEY=(.+)/);
+                        const match = envText.match(/GEMINI_API_KEY=(.+)/);
                         if (match && match[1].trim() !== '') {
                             return match[1].trim();
                         }
@@ -916,20 +916,6 @@
                 return;
             }
 
-            // Rate limiting check to prevent 429 Too Many Requests
-            const now = Date.now();
-            const timeSinceLastCall = now - lastApiCallTime;
-            const delayNeeded = Math.max(0, 3000 - timeSinceLastCall); // 3 seconds cooldown
-
-            if (delayNeeded > 0) {
-                document.getElementById('loader').style.display = 'flex';
-                document.getElementById('scanLine').style.display = 'block';
-                document.getElementById('loaderText').innerText = "ОБРОБКА... (Анти-спам)";
-                await new Promise(resolve => setTimeout(resolve, delayNeeded));
-                document.getElementById('loaderText').innerText = "ОБРОБКА ЗОБРАЖЕННЯ...";
-            }
-            lastApiCallTime = Date.now();
-
             // UI State
             document.getElementById('idleState').style.display = 'none';
             document.getElementById('resultsContent').style.display = 'none';
@@ -941,76 +927,55 @@
             const base64Data = base64Image.split(',')[1];
 
             const promptText = `
-                <role>
-Ти — провідний військовий експерт з радіоелектронної розвідки (РЕР/SIGINT) та аналізу спектрограм. Твоє завдання — холодний, об'єктивний та технічний аналіз зображення екрана аналізатора спектра (ймовірно TinySA Ultra або аналога).
-</role>
-
-<operational_context>
-Оцінка обстановки в зоні проведення моніторингу:
-1. ДОМІНУЮТЬ: Цивільні дрони (квадрокоптери типу DJI Mavic/Matrice, OcuSync, частоти 2.4/5.8 ГГц).
-2. ДОМІНУЮТЬ: Засоби РЕБ (окопні генератори перешкод, "купола", що створюють щільні шумові полиці).
-3. ЧАСТО: GNSS-spoofing (зриви, спуфінг та придушення GPS на частоті ~1.5 ГГц).
-4. РІДКО: FPV-дрони та БпЛА літакового типу (Орлан, ZALA). Завжди враховуй низьку ймовірність їх появи у цьому секторі при винесенні вердикту.
-</operational_context>
-
-<visual_parsing_rules>
-Уважно зчитай телеметрію з інтерфейсу приладу:
-- START (відображається внизу зліва): початкова частота.
-- STOP (відображається внизу справа): кінцева частота.
-- CENTER / SPAN (відображається вгорі екрана): центральна частота та ширина смуги огляду.
-- MARKERS (трикутники або крапки з цифрами на графіку): точні значення частот піків (якщо активовані).
-</visual_parsing_rules>
-
-<signal_signatures>
-Жорсткий довідник патернів для класифікації (використовувати ВИКЛЮЧНО його):
-- Широкосмуговий шум (широка піднята полиця, що закриває значну частину діапазону) -> Засоби РЕБ.
-- П-подібні полиці (прямокутні блоки завширшки ~10-20 МГц) -> Mavic/Matrice (OcuSync) або Wi-Fi.
-- Тонкі, часті піки-голки (одиничні або стрибаючі) -> Телеметрія (LoRa, ELRS, FPV керування).
-- "Горб" із бічними смугами/спідницями (широкий пік із пологими краями) -> Аналогове відео (FPV).
-- Пік або шум на 1575 МГц -> РЕБ/Спуфінг GNSS.
-</signal_signatures>
-
-<strict_constraints>
-1. БЕЗ ГАЛЮЦИНАЦІЙ: Базуй висновки ТІЛЬКИ на чітко видимих характеристиках (частота, ширина, форма). Якщо сигнал нечіткий, розмитий або зливається з рівнем шуму — вказуй "Невизначений сигнал або шум". Заборонено безпідставно класифікувати шум як FPV або розвідувальний БпЛА.
-2. ВІЙСЬКОВИЙ СТИЛЬ: Тільки факти. Лаконічно, сухо, по суті.
-3. ЄДИНИЙ ВЕРДИКТ: У полі ai_analysis вказуй лише ОДИН, найімовірніший засіб-джерело випромінювання на основі <signal_signatures> та <operational_context>.
-</strict_constraints>
-
-<output_format>
-МЕНІ ПОТРІБЕН ТІЛЬКИ ПРАВИЛЬНИЙ JSON. Жодного іншого тексту, пояснень чи вступних слів.
-Формат відповіді:
-{
-    "center_freq": <число або null, якщо неможливо визначити>,
-    "span": <число або null>,
-    "frequency_start": <число або null>,
-    "frequency_end": <число або null>,
-    "peaks": [<масив чисел - частоти виражених піків>],
-    "signal_shape": "<короткий опис форми, наприклад: П-подібна полиця, широкосмуговий шум, тонкі голки>",
-    "ai_analysis": "<Суворий висновок до 3 речень. Тільки факти. Наприклад: 'Зафіксовано П-подібну полицю в діапазоні 2.4 ГГц. З огляду на контекст, найімовірніше джерело — відеолінк дрона типу DJI Mavic. Ознак роботи РЕБ не виявлено.'>"
-}
-</output_format>
+                Ти експерт з радіоелектронної розвідки (SIGINT) та аналізу спектрограм.
+                Проаналізуй це зображення екрану аналізатора спектру (ймовірно TinySA Ultra).
+                
+                КОНТЕКСТ СЕРЕДОВИЩА: Зверни увагу, що в зоні проведення цього аналізу найчастіше використовуються:
+                1. Цивільні дрони (квадрокоптери типу Mavic/Matrice 2.4/5.8 ГГц)
+                2. Засоби РЕБ (окопні глушилки, купола, що дають шумові полиці)
+                3. GNSS-spoofing (зриви та спуфінг GPS на 1.5 ГГц)
+                Рідко застосовуються FPV та БпЛА літакового типу (Орлан, Зала). Враховуй цю ймовірність.
+                
+                ЖОРСТКІ ОБМЕЖЕННЯ АНАЛІЗУ (КРИТИЧНО!):
+                - Базуй висновок ТІЛЬКИ на чітко видимих характеристиках (частота, ширина, форма).
+                - ЗАБОРОНЕНО видумувати типи сигналів. Якщо патерн розмитий або схожий на шум - пиши "Невизначений сигнал або шум", не притягуй його до FPV або БпЛА.
+                - Будь лаконічним. Використовуй військовий стиль (коротко по суті).
+                - Чітко розрізняй: широкосмуговий шум (це РЕБ), П-подібні полиці (Mavic/Wi-Fi), тонкі часті піки-голки (FPV/LoRa), горб зі спідницями (аналогове відео).
+                
+                МЕНІ ПОТРІБЕН ТІЛЬКИ ПРАВИЛЬНИЙ JSON. Жодного іншого тексту. 
+                Знайди наступні параметри з інтерфейсу:
+                1. frequency_start (число МГц) - число з мітки осі Х зліва внизу.
+                2. frequency_end (число МГц) - число з мітки осі Х справа внизу.
+                3. center_freq (число МГц) - якщо вказано зверху. Інакше середина між start і end.
+                4. span (число МГц) - ширина огляду (якщо вказано).
+                5. peaks: масив орієнтовних частот значущих сигналів, що виділяються над шумом.
+                6. signal_shape: Опиши форму.
+                7. ai_analysis: Суворий, лаконічний висновок (до 3 речень) без води. Вкажи ЛИШЕ найімовірніший засіб (один), який випромінює цей сигнал. Тільки факти на основі жорстких обмежень вище.
+                
+                Відповідь СУВОРО у форматі JSON:
+                {
+                    "center_freq": 915.0,
+                    "span": 20.0,
+                    "frequency_start": 905.0,
+                    "frequency_end": 925.0,
+                    "peaks": [915.5, 916.0],
+                    "signal_shape": "кілька гострих піків",
+                    "ai_analysis": "Ймовірніше за все, це..."
+                }
             `;
 
             try {
-                const response = await fetch(`https://api.groq.com/openai/v1/chat/completions`, {
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${currentApiKey}`, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${currentApiKey}`
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        model: "meta-llama/llama-4-scout-17b-16e-instruct",
-                        messages: [
-                            {
-                                role: "user",
-                                content: [
-                                    { type: "text", text: promptText },
-                                    { type: "image_url", image_url: { url: `data:${mimeType};base64,${base64Data}` } }
-                                ]
-                            }
-                        ],
-                        response_format: { type: "json_object" },
-                        temperature: 0.1
+                        contents: [{
+                            parts: [
+                                { text: promptText },
+                                { inlineData: { mimeType: mimeType, data: base64Data } }
+                            ]
+                        }],
+                        generationConfig: { temperature: 0.1 }
                     })
                 });
 
@@ -1024,14 +989,16 @@
                 }
 
                 const data = await response.json();
-                const rawText = data.choices[0].message.content;
+                const rawText = data.candidates[0].content.parts[0].text;
 
-                // Extract only the JSON block (ignores introductory conversational text)
-                const jsonMatch = rawText.match(/\{[\s\S]*\}/);
-                if (!jsonMatch) {
-                    throw new Error("Не вдалося знайти JSON у відповіді. Отримано: " + rawText.substring(0, 50));
+                // Clean markdown JSON wrapper if present
+                let jsonStr = rawText.trim();
+                if (jsonStr.startsWith("```json")) {
+                    jsonStr = jsonStr.substring(7, jsonStr.length - 3).trim();
+                } else if (jsonStr.startsWith("```")) {
+                    jsonStr = jsonStr.substring(3, jsonStr.length - 3).trim();
                 }
-                const jsonStr = jsonMatch[0];
+
                 const rawAiData = JSON.parse(jsonStr);
 
                 // Sanitize AI outputs to ensure they are float MHz
@@ -1044,8 +1011,8 @@
                     let numMatch = str.match(/-?\d+(\.\d+)?/);
                     if (!numMatch) return null;
                     let num = parseFloat(numMatch[0]);
-
-                    if (!isSpan && num > 0 && num < 10 && mult === 1) mult = 1000;
+                    
+                    if (!isSpan && num > 0 && num < 10 && mult === 1) mult = 1000; 
                     return num * mult;
                 };
 
@@ -1056,7 +1023,7 @@
                     frequency_start: sanitizeFreq(rawAiData.frequency_start),
                     frequency_end: sanitizeFreq(rawAiData.frequency_end)
                 };
-
+                
                 if (Array.isArray(rawAiData.peaks)) {
                     aiData.peaks = rawAiData.peaks.map(p => sanitizeFreq(p)).filter(p => p !== null);
                 } else if (rawAiData.peaks) {
@@ -1265,34 +1232,6 @@
 
             resContainer.style.display = 'block';
         }
-    </script>
-
-    <script>
-        // --- PWA: Service Worker & Install ---
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('./sw.js').catch(() => {});
-        }
-
-        let deferredPrompt = null;
-        window.addEventListener('beforeinstallprompt', (e) => {
-            e.preventDefault();
-            deferredPrompt = e;
-            // Show install button in header
-            const installBtn = document.createElement('button');
-            installBtn.className = 'btn';
-            installBtn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Встановити`;
-            installBtn.style.background = 'rgba(0,212,170,0.15)';
-            installBtn.style.borderColor = 'var(--primary)';
-            installBtn.onclick = async () => {
-                if (deferredPrompt) {
-                    deferredPrompt.prompt();
-                    const { outcome } = await deferredPrompt.userChoice;
-                    if (outcome === 'accepted') installBtn.remove();
-                    deferredPrompt = null;
-                }
-            };
-            document.querySelector('header > div:last-child').prepend(installBtn);
-        });
     </script>
 </body>
 
