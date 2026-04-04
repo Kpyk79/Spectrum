@@ -595,7 +595,7 @@
             <h2 style="margin-bottom: 1.5rem; border:none;">Налаштування API</h2>
             <div class="form-group">
                 <label for="apiKey">Groq API Key (Llama 3)</label>
-                <input type="password" id="apiKey" placeholder="gsk_...">
+                <input type="password" id="apiKey" placeholder="gsk_..." autocomplete="off">
                 <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem;">
                     Отримайте ключ у <a href="https://console.groq.com/keys" target="_blank"
                         style="color: var(--primary)">Groq Console</a>. Ключ не зберігається в кеші і зникає після
@@ -734,20 +734,39 @@
 
         // --- INITIALIZATION ---
         document.addEventListener('DOMContentLoaded', async () => {
-            // Примусово очищаємо застарілі дані з кешу (від попередніх версій)
+            // Очищаємо поле та кеш
+            document.getElementById('apiKey').value = '';
             try { localStorage.removeItem('gemini_api_key'); localStorage.clear(); } catch (e) { }
 
-            // Автоматичне завантаження ключа з .env
-            try {
-                const envResponse = await fetch('./.env');
-                if (envResponse.ok) {
-                    const envText = await envResponse.text();
-                    const match = envText.match(/GROQ_API_KEY=(.+)/);
-                    if (match) {
-                        currentApiKey = match[1].trim();
+            // Послідовна спроба отримати ключ
+            const tryFetchKeys = async () => {
+                // 1. Спроба з сервера (Render)
+                try {
+                    const apiResp = await fetch('/api/env');
+                    if (apiResp.ok) {
+                        const config = await apiResp.json();
+                        if (config.GROQ_API_KEY && config.GROQ_API_KEY.trim() !== '') {
+                            return config.GROQ_API_KEY.trim();
+                        }
                     }
-                }
-            } catch (e) { /* .env не знайдено — ручний ввід */ }
+                } catch (e) { }
+
+                // 2. Спроба з локального .env
+                try {
+                    const envResp = await fetch('./.env');
+                    if (envResp.ok) {
+                        const envText = await envResp.text();
+                        const match = envText.match(/GROQ_API_KEY=(.+)/);
+                        if (match && match[1].trim() !== '') {
+                            return match[1].trim();
+                        }
+                    }
+                } catch (e) { }
+
+                return '';
+            };
+
+            currentApiKey = await tryFetchKeys();
 
             if (currentApiKey) {
                 document.getElementById('apiKey').value = currentApiKey;
