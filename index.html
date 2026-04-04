@@ -730,12 +730,24 @@
         let currentFileBase64 = null;
         let isManualMode = false;
         let lastApiCallTime = 0;
-        let currentApiKey = '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';
+        let currentApiKey = '';
 
         // --- INITIALIZATION ---
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
             // Примусово очищаємо застарілі дані з кешу (від попередніх версій)
             try { localStorage.removeItem('gemini_api_key'); localStorage.clear(); } catch (e) { }
+
+            // Автоматичне завантаження ключа з .env
+            try {
+                const envResponse = await fetch('./.env');
+                if (envResponse.ok) {
+                    const envText = await envResponse.text();
+                    const match = envText.match(/GROQ_API_KEY=(.+)/);
+                    if (match) {
+                        currentApiKey = match[1].trim();
+                    }
+                }
+            } catch (e) { /* .env не знайдено — ручний ввід */ }
 
             if (currentApiKey) {
                 document.getElementById('apiKey').value = currentApiKey;
