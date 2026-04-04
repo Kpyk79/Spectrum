@@ -1,6 +1,9 @@
 # Секретні ключі
 .env
 
+# Node.js
+node_modules/
+
 # Резервні копії
 spectrum – копія*.html
 spectrum v2.html
