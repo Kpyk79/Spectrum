@@ -18,8 +18,8 @@ app.use(express.static(path.join(__dirname)));
 // API endpoint: return env vars to the client
 app.get('/api/env', (req, res) => {
     res.json({
-        GROQ_API_KEY: process.env.GROQ_API_KEY || '',
-        GEMINI_API_KEY: process.env.GEMINI_API_KEY || ''
+        GROQ_API_KEY: (process.env.GROQ_API_KEY || '').trim(),
+        GEMINI_API_KEY: (process.env.GEMINI_API_KEY || '').trim()
     });
 });
 
