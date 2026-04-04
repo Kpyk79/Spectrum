@@ -1,0 +1,1248 @@
+<!DOCTYPE html>
+<html lang="uk">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#00d4aa">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="TinySA Ultra">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="application-name" content="TinySA Ultra">
+    <meta name="description" content="Аналіз спектрограм TinySA Ultra за допомогою ШІ">
+    <title>TinySA Ultra - Аналізатор Спектрів</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icon-512.png">
+    <link rel="icon" type="image/png" href="icon-512.png">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0b0f19;
+            --bg-panel: #151a28;
+            --bg-card: #1c2235;
+            --primary: #00d4aa;
+            --primary-hover: #00f0c0;
+            --secondary: #3b82f6;
+            --text-main: #e2e8f0;
+            --text-muted: #94a3b8;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --success: #10b981;
+            --border: #2dd4bf33;
+            --border-hover: #2dd4bf88;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            line-height: 1.6;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            background-color: var(--bg-panel);
+            padding: 1rem 2rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-weight: 800;
+            font-size: 1.5rem;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            letter-spacing: 1px;
+        }
+
+        .logo span {
+            color: var(--text-main);
+        }
+
+        .btn {
+            background-color: var(--bg-card);
+            color: var(--text-main);
+            border: 1px solid var(--border);
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: 'Inter', sans-serif;
+            font-weight: 600;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+            box-shadow: 0 0 10px rgba(0, 212, 170, 0.2);
+        }
+
+        .btn-primary {
+            background-color: var(--primary);
+            color: var(--bg-color);
+            border: none;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--primary-hover);
+            color: var(--bg-color);
+            box-shadow: 0 0 15px rgba(0, 212, 170, 0.4);
+        }
+
+        main {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            flex: 1;
+            gap: 2rem;
+            padding: 2rem;
+            max-width: 1600px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        @media (max-width: 1024px) {
+            main {
+                grid-template-columns: 1fr;
+                padding: 1rem;
+            }
+
+            header {
+                flex-direction: column;
+                gap: 1rem;
+                padding: 1rem;
+                align-items: center;
+            }
+
+            .freq-data {
+                grid-template-columns: 1fr;
+            }
+
+            .btn {
+                padding: 0.5rem;
+                font-size: 0.9rem;
+            }
+
+            #manualModeForm .freq-data {
+                display: flex;
+                flex-direction: column;
+            }
+        }
+
+        .panel {
+            background-color: var(--bg-panel);
+            border-radius: 12px;
+            padding: 1.5rem;
+            border: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        h2 {
+            font-size: 1.25rem;
+            color: var(--primary);
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 0.5rem;
+        }
+
+        /* Uploader */
+        .upload-zone {
+            border: 2px dashed var(--border);
+            border-radius: 8px;
+            padding: 3rem 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background-color: var(--bg-card);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .upload-zone:hover,
+        .upload-zone.dragover {
+            border-color: var(--primary);
+            background-color: rgba(0, 212, 170, 0.05);
+        }
+
+        .upload-icon {
+            font-size: 3rem;
+            color: var(--primary);
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .preview-container {
+            display: none;
+            width: 100%;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+            position: relative;
+        }
+
+        .preview-container img {
+            width: 100%;
+            display: block;
+        }
+
+        .preview-overlay {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 4px;
+            padding: 5px;
+        }
+
+        /* Results Panel */
+        #results {
+            display: none;
+        }
+
+        .loader-container {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            gap: 1rem;
+        }
+
+        .loader {
+            width: 50px;
+            height: 50px;
+            border: 3px solid rgba(0, 212, 170, 0.3);
+            border-radius: 50%;
+            border-top-color: var(--primary);
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .result-card {
+            background-color: var(--bg-card);
+            border-radius: 8px;
+            padding: 1.5rem;
+            border: 1px solid var(--border);
+            margin-bottom: 1rem;
+            transition: transform 0.2s;
+        }
+
+        .result-card:hover {
+            transform: translateX(5px);
+            border-left: 3px solid var(--primary);
+        }
+
+        .result-card.danger {
+            border-color: var(--danger);
+        }
+
+        .result-card.danger:hover {
+            border-left-color: var(--danger);
+        }
+
+        .result-card.warning {
+            border-color: var(--warning);
+        }
+
+        .result-card.warning:hover {
+            border-left-color: var(--warning);
+        }
+
+        .result-card.info {
+            border-color: var(--secondary);
+        }
+
+        .result-card.info:hover {
+            border-left-color: var(--secondary);
+        }
+
+        .result-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .result-title {
+            font-size: 1.2rem;
+            font-weight: 700;
+        }
+
+        .danger .result-title {
+            color: var(--danger);
+        }
+
+        .warning .result-title {
+            color: var(--warning);
+        }
+
+        .info .result-title {
+            color: var(--secondary);
+        }
+
+        .confidence {
+            font-family: 'JetBrains Mono', monospace;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+
+        .freq-data {
+            font-family: 'JetBrains Mono', monospace;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+
+        .freq-data span {
+            color: var(--text-main);
+            font-weight: bold;
+        }
+
+        .desc {
+            font-size: 0.95rem;
+            border-top: 1px solid var(--border);
+            padding-top: 1rem;
+        }
+
+        .recommendation {
+            margin-top: 1rem;
+            padding: 0.75rem;
+            background: rgba(255, 255, 255, 0.05);
+            border-left: 3px solid var(--primary);
+            font-size: 0.9rem;
+            border-radius: 0 4px 4px 0;
+        }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal {
+            background: var(--bg-panel);
+            padding: 2rem;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        .form-group input {
+            width: 100%;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            padding: 0.75rem;
+            border-radius: 6px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(0, 212, 170, 0.2);
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 1rem;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: var(--bg-card);
+            border-left: 4px solid var(--primary);
+            padding: 1rem;
+            border-radius: 4px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            z-index: 1001;
+        }
+
+        .toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        .scan-line {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: var(--primary);
+            box-shadow: 0 0 10px var(--primary), 0 0 20px var(--primary);
+            opacity: 0.7;
+            display: none;
+            animation: scan 2s linear infinite;
+        }
+
+        @keyframes scan {
+            0% {
+                top: 0;
+            }
+
+            100% {
+                top: 100%;
+            }
+        }
+
+        /* Threat Level Indicator */
+        .threat-level-bar {
+            height: 6px;
+            background: var(--bg-card);
+            border-radius: 3px;
+            margin-top: 1rem;
+            overflow: hidden;
+            display: flex;
+        }
+
+        .threat-segment {
+            height: 100%;
+            transition: width 1s ease-out;
+        }
+
+        .no-api-warning {
+            padding: 1rem;
+            background: rgba(245, 158, 11, 0.1);
+            border: 1px solid var(--warning);
+            border-radius: 6px;
+            margin-bottom: 1rem;
+            display: none;
+            color: var(--warning);
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <div class="logo">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M2 12h4l2-9 5 18 4-9h5" />
+            </svg>
+            TinySA<span>Ultra</span>
+        </div>
+        <div style="display: flex; gap: 1rem;">
+            <button class="btn" onclick="toggleManualMode()">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="3"></circle>
+                    <path
+                        d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
+                    </path>
+                </svg>
+                Ручний режим
+            </button>
+            <button class="btn" onclick="openSettings()">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path
+                        d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4">
+                    </path>
+                </svg>
+                Налаштування API
+            </button>
+        </div>
+    </header>
+
+    <main>
+        <div
+            style="grid-column: 1 / -1; background-color: rgba(245, 158, 11, 0.05); border-left: 4px solid var(--warning); padding: 1rem; border-radius: 4px; color: var(--warning); font-size: 0.95rem; display: flex; align-items: center; gap: 0.5rem; margin-bottom: -1rem;">
+            ⚠️ <b>Увага!</b> Результати аналізу фото є лише ймовірними та мають використовуватись як допоміжна
+            інформація.
+        </div>
+        <section class="panel">
+            <h2>Джерело Даних</h2>
+
+            <div class="no-api-warning" id="apiWarning">
+                🤖 Groq API ключ не налаштовано. Працює лише ручний режим.<br>
+                <a href="#" style="color:var(--warning)" onclick="openSettings()">Налаштувати зараз</a>
+            </div>
+
+            <div id="uploadZone" class="upload-zone" ondragover="handleDragOver(event)"
+                ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)"
+                onclick="document.getElementById('fileInput').click()">
+                <div class="upload-icon">📸</div>
+                <h3>Завантажте фото екрану</h3>
+                <p style="color: var(--text-muted); font-size: 0.9rem;">Перетягніть фото сюди або натисніть для вибору
+                    файлу<br>(TinySA Ultra Spectrum)</p>
+                <input type="file" id="fileInput" accept="image/*" onchange="handleFileSelect(event)">
+            </div>
+
+            <div id="previewContainer" class="preview-container">
+                <img id="previewImage" src="" alt="Preview">
+                <div class="scan-line" id="scanLine"></div>
+                <div class="preview-overlay">
+                    <button class="btn btn-primary" onclick="resetUpload()"
+                        style="padding: 0.2rem 0.5rem; font-size: 0.8rem;">✕ Очистити</button>
+                </div>
+            </div>
+
+            <!-- Manual Mode Form -->
+            <div id="manualModeForm"
+                style="display: none; flex-direction: column; gap: 1rem; margin-top: 1rem; border-top: 1px solid var(--border); padding-top: 1rem;">
+                <h3>Параметри сигналу (Ручний ввід)</h3>
+                <div class="freq-data" style="grid-template-columns: 1fr 1fr 1fr;">
+                    <div class="form-group" style="margin:0">
+                        <label>Центральна Частота (МГц)</label>
+                        <input type="number" id="manualCenter" step="any" placeholder="напр. 915">
+                    </div>
+                    <div class="form-group" style="margin:0">
+                        <label>Смуга (Span) (МГц)</label>
+                        <input type="number" id="manualSpan" step="any" placeholder="напр. 20">
+                    </div>
+                    <div class="form-group" style="margin:0">
+                        <label>Ознака сигналу</label>
+                        <input type="text" id="manualType" placeholder="вузький, п-подібний">
+                    </div>
+                </div>
+                <button class="btn btn-primary" style="justify-content: center" onclick="analyzeManual()">Аналізувати
+                    вручну</button>
+            </div>
+
+        </section>
+
+        <section class="panel">
+            <h2>Результати Аналізу</h2>
+
+            <div id="loader" class="loader-container">
+                <div class="loader"></div>
+                <p id="loaderText"
+                    style="color: var(--primary); font-weight: 600; font-family: 'JetBrains Mono', monospace;">ОБРОБКА
+                    ЗОБРАЖЕННЯ...</p>
+                <p style="color: var(--text-muted); font-size: 0.8rem; text-align: center;">Llama Vision аналізує
+                    частоти, маркери та форму сигналу</p>
+            </div>
+
+            <div id="resultsContent" style="display: none; height: 100%; overflow-y: auto; padding-right: 10px;">
+                <!-- Results will be injected here -->
+            </div>
+
+            <div id="idleState" style="text-align: center; color: var(--text-muted); margin-top: 4rem;">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"
+                    style="opacity: 0.5; margin-bottom: 1rem;">
+                    <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
+                </svg>
+                <p>Очікування вхідних даних спектрограми</p>
+            </div>
+        </section>
+    </main>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="modal-overlay">
+        <div class="modal">
+            <h2 style="margin-bottom: 1.5rem; border:none;">Налаштування API</h2>
+            <div class="form-group">
+                <label for="apiKey">Groq API Key (Llama 3)</label>
+                <input type="password" id="apiKey" placeholder="gsk_...">
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem;">
+                    Отримайте ключ у <a href="https://console.groq.com/keys" target="_blank"
+                        style="color: var(--primary)">Groq Console</a>. Ключ не зберігається в кеші і зникає після
+                    оновлення сторінки.
+                </p>
+            </div>
+            <div class="modal-actions">
+                <button class="btn" onclick="closeSettings()">Скасувати</button>
+                <button class="btn btn-primary" onclick="saveSettings()">Зберегти</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast">Повідомлення</div>
+
+    <script>
+        // --- ДАНИІ РЕАЛЬНИХ СИГНАЛІВ ---
+        const signalDB = [
+            // 1. Цивільні БпЛА та FPV
+            {
+                id: 'dji_ocusync', name: 'DJI OcuSync (Mavic/Matrice)', category: 'UAV', threat: 'warning',
+                ranges: [[2400, 2483], [5725, 5850]], bw: [10, 20, 40], type: 'Широкосмуговий OFDM (Frequency Hopping)',
+                desc: 'П-подібна полиця шириною 10-40 МГц з різкими краями.',
+                rec: 'Застосувати РЕБ на частотах 2.4 / 5.8 ГГц. Використати антидрон-рушницю.'
+            },
+            {
+                id: 'elrs_crossfire', name: 'ELRS / Crossfire (FPV)', category: 'FPV', threat: 'danger',
+                ranges: [[860, 875], [900, 930], [2400, 2480]], bw: [5, 20], type: 'LoRa / FHSS (ППРЧ)',
+                desc: 'Тонкі вертикальні піки (голки). На водопаді ритмічний пунктир. Швидка зміна частоти.',
+                rec: 'УВАГА: Підвищена небезпека FPV-камікадзе! Негайно укритися або включити купольний РЕБ 900МГц / 2.4ГГц.'
+            },
+            {
+                id: 'analog_video', name: 'Аналогове Відео (FPV)', category: 'FPV', threat: 'danger',
+                ranges: [[1080, 1250], [2400, 2480], [5700, 5900]], bw: [15, 25], type: 'Аналогова модуляція',
+                desc: 'Висока несуча (горб по центру) та симетричні "спідниці" з боків. "Дихає" на спектрі.',
+                rec: 'Ймовірна трансляція відео з FPV камікадзе. Попередьте особовий склад.'
+            },
+
+            // 2. Військові БпЛА (Розвідка / Ударні)
+            {
+                id: 'uav_orlan', name: 'БПЛА «Орлан-10/30» (Телеметрія)', category: 'Mil-UAV', threat: 'danger',
+                ranges: [[900, 920]], bw: [1, 3], type: 'Швидкий ППРЧ',
+                desc: 'Хаотичні сплески у вузькому діапазоні або вузькосмуговий канал.',
+                rec: 'Ворожий розвідник/коригувальник артилерії. Маскування позицій, доповідь ППО.'
+            },
+            {
+                id: 'uav_lancet', name: 'Ланцет / ZALA', category: 'Mil-UAV', threat: 'danger',
+                ranges: [[868, 869], [915, 916], [2200, 2400]], bw: [2, 10], type: 'Вузькі канали / Цифрове відео',
+                desc: 'Стабільна смуга на водопаді під час фінального заходу на ціль.',
+                rec: 'КРИТИЧНО! Баражуючий боєприпас. Негайно застосувати протидію або укритися!'
+            },
+            {
+                id: 'uav_furia_ctrl', name: 'БПЛА «Фурія» (Керування)', category: 'Mil-UAV', threat: 'warning',
+                ranges: [[916, 928], [432, 448]], bw: [12, 16], type: 'Багатопіковий канал',
+                desc: 'Кілька стабільних піків (гребінець) або широка багатопікова структура.',
+                rec: 'Розвідник. Перемістіть техніку або використайте дими.'
+            },
+            {
+                id: 'uav_furia_video', name: 'БПЛА «Фурія» (Відео)', category: 'Mil-UAV', threat: 'warning',
+                ranges: [[1154, 1164]], bw: [10, 15], type: 'Широкосмугове відео',
+                desc: 'Потужний широкосмуговий сигнал відеопередачі.',
+                rec: 'Працює ворожа трансляція. Застосувати РЕБ 1.2 ГГц на відеоканал.'
+            },
+            {
+                id: 'uav_leleka', name: 'БПЛА «Лелека-100 / Shark»', category: 'Mil-UAV', threat: 'warning',
+                ranges: [[860, 930]], bw: [5, 27], type: 'OFDM / ППРЧ пакетами',
+                desc: 'Широка пляма або смуга 5-10 МГц, що стрибає діапазоном.',
+                rec: 'Ведеться аеророзвідка високої якості. Режим радіотиші.'
+            },
+            {
+                id: 'uav_valkyria', name: 'БПЛА «Валькірія»', category: 'Mil-UAV', threat: 'warning',
+                ranges: [[914, 926]], bw: [12, 15], type: 'Багатопікова телеметрія',
+                desc: 'Щільний ліс піків (як на гребені).',
+                rec: 'Розвідка. Можливе коригування мінометів.'
+            },
+
+            // РЛС
+            {
+                id: 'radar_p18', name: 'РЛС П18', category: 'Radar', threat: 'INFO',
+                ranges: [[165, 168]], bw: [1, 2], type: 'Імпульсний РЛС',
+                desc: 'Вузькі, гострі піки. Зафіксовано на 165-166 та 167-168 МГц.',
+                rec: 'Робота РЛС дальнього виявлення. Стандартна активність.'
+            },
+            {
+                id: 'radar_p19', name: 'РЛС П19', category: 'Radar', threat: 'INFO',
+                ranges: [[857, 860]], bw: [1, 3], type: 'Імпульсний РЛС',
+                desc: 'Подвійний гострий пік з "спідницею" гармонік.',
+                rec: 'Робота РЛС виявлення.'
+            },
+            {
+                id: 'radar_psnr', name: 'РЛС ПСНР', category: 'Radar', threat: 'INFO',
+                ranges: [[16260, 16270]], bw: [5, 5], type: 'Вузькосмуговий',
+                desc: 'Один різкий пік в районі 16.2 ГГц.',
+                rec: 'Робота портативної станції наземної розвідки.'
+            },
+            {
+                id: 'radar_antpq', name: 'РЛС AN/TPQ', category: 'Radar', threat: 'INFO',
+                ranges: [[1390, 1391]], bw: [1, 2], type: 'Вузький CW',
+                desc: 'Дуже вузький стабільний пік контрбатарейного радару.',
+                rec: 'Робота союзної контрбатарейної РЛС.'
+            },
+
+            // РЕБ та інші
+            {
+                id: 'ew_1', name: 'РЕБ (Загороджувальний)', category: 'EW', threat: 'info',
+                ranges: [[850, 950], [1500, 1650], [2400, 2500], [5700, 5900]], bw: [20, 100], type: 'Широкосмуговий Шум',
+                desc: 'Суцільний підйом рівня шуму "гора/хмара" у широкій смузі.',
+                rec: 'Працює станція РЕБ. Ймовірно придушення супутників або керування дронами.'
+            },
+            {
+                id: 'ew_sweep', name: 'РЕБ (Ковзна завада)', category: 'EW', threat: 'info',
+                ranges: [[400, 2500]], bw: [1, 50], type: 'Sweeper',
+                desc: 'На водопаді діагональні лінії ("пилка"). Швидкий прохід частотами.',
+                rec: 'Робота мобільного РЕБ. Перешкоди зв\'язку.'
+            },
+            {
+                id: 'ew_gps_spoofing', name: 'РЕБ (Спуфінг GNSS / GPS)', category: 'EW', threat: 'warning',
+                ranges: [[1550, 1610], [1200, 1250]], bw: [5, 30], type: 'Широкий Шум / BPSK',
+                desc: 'Аномально потужний пік або широка смуга на частотах супутникової навігації (L1 ~1575 МГц, L2 ~1227 МГц).',
+                rec: 'Підміна або придушення координат. Дрони можуть втратити орієнтацію (злетіти вбік).'
+            },
+            {
+                id: 'sig_dmr', name: 'DMR / MOTOTRBO (Рації)', category: 'COMMS', threat: 'INFO',
+                ranges: [[136, 174], [400, 470]], bw: [0.0125, 0.025], type: 'TDMA Цифровий голос',
+                desc: 'Чіткі вузькі піки. Короткі тире на водопаді (таймслоти).',
+                rec: 'Радіообмін. Може бути як ворожий, так і союзний.'
+            }
+        ];
+
+        // --- APP STATE ---
+        let currentFileBase64 = null;
+        let isManualMode = false;
+        let lastApiCallTime = 0;
+        let currentApiKey = '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';
+
+        // --- INITIALIZATION ---
+        document.addEventListener('DOMContentLoaded', () => {
+            // Примусово очищаємо застарілі дані з кешу (від попередніх версій)
+            try { localStorage.removeItem('gemini_api_key'); localStorage.clear(); } catch (e) { }
+
+            if (currentApiKey) {
+                document.getElementById('apiKey').value = currentApiKey;
+                document.getElementById('apiWarning').style.display = 'none';
+            } else {
+                document.getElementById('apiWarning').style.display = 'block';
+            }
+        });
+
+        // --- UI UTILS ---
+        function showToast(msg, type = 'info') {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.style.borderLeftColor = type === 'error' ? 'var(--danger)' : 'var(--primary)';
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 4000);
+        }
+
+        function openSettings() { document.getElementById('settingsModal').style.display = 'flex'; }
+        function closeSettings() { document.getElementById('settingsModal').style.display = 'none'; }
+
+        function saveSettings() {
+            const key = document.getElementById('apiKey').value.trim();
+            if (key) {
+                currentApiKey = key;
+                document.getElementById('apiWarning').style.display = 'none';
+                showToast('API ключ тимчасово застосовано!');
+                closeSettings();
+            } else {
+                currentApiKey = '';
+                document.getElementById('apiWarning').style.display = 'block';
+                showToast('API ключ видалено', 'error');
+                closeSettings();
+            }
+        }
+
+        function toggleManualMode() {
+            isManualMode = !isManualMode;
+            document.getElementById('manualModeForm').style.display = isManualMode ? 'flex' : 'none';
+            showToast(isManualMode ? 'Увімкнено ручний режим вводу' : 'Увімкнено режим AI аналізу');
+        }
+
+        function loadSample() {
+            showToast('Ця функція завантажить зразок (у розробці)');
+        }
+
+        // --- FILE HANDLING ---
+        function handleDragOver(e) { e.preventDefault(); document.getElementById('uploadZone').classList.add('dragover'); }
+        function handleDragLeave(e) { e.preventDefault(); document.getElementById('uploadZone').classList.remove('dragover'); }
+        function handleDrop(e) {
+            e.preventDefault();
+            document.getElementById('uploadZone').classList.remove('dragover');
+            if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                processFile(e.dataTransfer.files[0]);
+            }
+        }
+        function handleFileSelect(e) {
+            if (e.target.files && e.target.files.length > 0) {
+                processFile(e.target.files[0]);
+            }
+        }
+
+        function processFile(file) {
+            if (!file.type.startsWith('image/')) {
+                showToast('Будь ласка, завантажте зображення', 'error');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const base64 = e.target.result;
+                currentFileBase64 = base64;
+
+                document.getElementById('uploadZone').style.display = 'none';
+                document.getElementById('previewContainer').style.display = 'block';
+                document.getElementById('previewImage').src = base64;
+
+                if (!isManualMode) {
+                    analyzeWithAI(base64);
+                } else {
+                    document.getElementById('idleState').innerHTML = '<p>Введіть дані в форму зліва та натисніть "Аналізувати"</p>';
+                    document.getElementById('idleState').style.display = 'block';
+                    document.getElementById('resultsContent').style.display = 'none';
+                }
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function resetUpload() {
+            currentFileBase64 = null;
+            document.getElementById('fileInput').value = '';
+            document.getElementById('previewContainer').style.display = 'none';
+            document.getElementById('uploadZone').style.display = 'flex';
+            document.getElementById('resultsContent').style.display = 'none';
+            document.getElementById('idleState').style.display = 'block';
+            document.getElementById('scanLine').style.display = 'none';
+        }
+
+        // --- ANALYSIS ENGINE ---
+
+        // Ручний аналіз
+        function analyzeManual() {
+            const centerMatch = parseFloat(document.getElementById('manualCenter').value);
+            const spanMatch = parseFloat(document.getElementById('manualSpan').value);
+            const typeMatch = document.getElementById('manualType').value;
+
+            if (isNaN(centerMatch)) {
+                showToast('Введіть коректну центральну частоту', 'error');
+                return;
+            }
+
+            const dummyAiData = {
+                center_freq: centerMatch,
+                span: isNaN(spanMatch) ? 0 : spanMatch,
+                peaks: [centerMatch],
+                shape: typeMatch
+            };
+
+            processMatches(dummyAiData);
+        }
+
+        // AI Аналіз
+        async function analyzeWithAI(base64Image) {
+            if (!currentApiKey) {
+                showToast('Потрібен API ключ. Використовуйте ручний режим.', 'error');
+                document.getElementById('idleState').innerHTML = '<p style="color:var(--danger)">Помилка: API ключ відсутній</p>';
+                return;
+            }
+
+            // Rate limiting check to prevent 429 Too Many Requests
+            const now = Date.now();
+            const timeSinceLastCall = now - lastApiCallTime;
+            const delayNeeded = Math.max(0, 3000 - timeSinceLastCall); // 3 seconds cooldown
+
+            if (delayNeeded > 0) {
+                document.getElementById('loader').style.display = 'flex';
+                document.getElementById('scanLine').style.display = 'block';
+                document.getElementById('loaderText').innerText = "ОБРОБКА... (Анти-спам)";
+                await new Promise(resolve => setTimeout(resolve, delayNeeded));
+                document.getElementById('loaderText').innerText = "ОБРОБКА ЗОБРАЖЕННЯ...";
+            }
+            lastApiCallTime = Date.now();
+
+            // UI State
+            document.getElementById('idleState').style.display = 'none';
+            document.getElementById('resultsContent').style.display = 'none';
+            document.getElementById('loader').style.display = 'flex';
+            document.getElementById('scanLine').style.display = 'block';
+
+            const mimeTypeMatch = base64Image.match(/^data:(.*?);/);
+            const mimeType = mimeTypeMatch ? mimeTypeMatch[1] : "image/jpeg";
+            const base64Data = base64Image.split(',')[1];
+
+            const promptText = `
+                <role>
+Ти — провідний військовий експерт з радіоелектронної розвідки (РЕР/SIGINT) та аналізу спектрограм. Твоє завдання — холодний, об'єктивний та технічний аналіз зображення екрана аналізатора спектра (ймовірно TinySA Ultra або аналога).
+</role>
+
+<operational_context>
+Оцінка обстановки в зоні проведення моніторингу:
+1. ДОМІНУЮТЬ: Цивільні дрони (квадрокоптери типу DJI Mavic/Matrice, OcuSync, частоти 2.4/5.8 ГГц).
+2. ДОМІНУЮТЬ: Засоби РЕБ (окопні генератори перешкод, "купола", що створюють щільні шумові полиці).
+3. ЧАСТО: GNSS-spoofing (зриви, спуфінг та придушення GPS на частоті ~1.5 ГГц).
+4. РІДКО: FPV-дрони та БпЛА літакового типу (Орлан, ZALA). Завжди враховуй низьку ймовірність їх появи у цьому секторі при винесенні вердикту.
+</operational_context>
+
+<visual_parsing_rules>
+Уважно зчитай телеметрію з інтерфейсу приладу:
+- START (відображається внизу зліва): початкова частота.
+- STOP (відображається внизу справа): кінцева частота.
+- CENTER / SPAN (відображається вгорі екрана): центральна частота та ширина смуги огляду.
+- MARKERS (трикутники або крапки з цифрами на графіку): точні значення частот піків (якщо активовані).
+</visual_parsing_rules>
+
+<signal_signatures>
+Жорсткий довідник патернів для класифікації (використовувати ВИКЛЮЧНО його):
+- Широкосмуговий шум (широка піднята полиця, що закриває значну частину діапазону) -> Засоби РЕБ.
+- П-подібні полиці (прямокутні блоки завширшки ~10-20 МГц) -> Mavic/Matrice (OcuSync) або Wi-Fi.
+- Тонкі, часті піки-голки (одиничні або стрибаючі) -> Телеметрія (LoRa, ELRS, FPV керування).
+- "Горб" із бічними смугами/спідницями (широкий пік із пологими краями) -> Аналогове відео (FPV).
+- Пік або шум на 1575 МГц -> РЕБ/Спуфінг GNSS.
+</signal_signatures>
+
+<strict_constraints>
+1. БЕЗ ГАЛЮЦИНАЦІЙ: Базуй висновки ТІЛЬКИ на чітко видимих характеристиках (частота, ширина, форма). Якщо сигнал нечіткий, розмитий або зливається з рівнем шуму — вказуй "Невизначений сигнал або шум". Заборонено безпідставно класифікувати шум як FPV або розвідувальний БпЛА.
+2. ВІЙСЬКОВИЙ СТИЛЬ: Тільки факти. Лаконічно, сухо, по суті.
+3. ЄДИНИЙ ВЕРДИКТ: У полі ai_analysis вказуй лише ОДИН, найімовірніший засіб-джерело випромінювання на основі <signal_signatures> та <operational_context>.
+</strict_constraints>
+
+<output_format>
+МЕНІ ПОТРІБЕН ТІЛЬКИ ПРАВИЛЬНИЙ JSON. Жодного іншого тексту, пояснень чи вступних слів.
+Формат відповіді:
+{
+    "center_freq": <число або null, якщо неможливо визначити>,
+    "span": <число або null>,
+    "frequency_start": <число або null>,
+    "frequency_end": <число або null>,
+    "peaks": [<масив чисел - частоти виражених піків>],
+    "signal_shape": "<короткий опис форми, наприклад: П-подібна полиця, широкосмуговий шум, тонкі голки>",
+    "ai_analysis": "<Суворий висновок до 3 речень. Тільки факти. Наприклад: 'Зафіксовано П-подібну полицю в діапазоні 2.4 ГГц. З огляду на контекст, найімовірніше джерело — відеолінк дрона типу DJI Mavic. Ознак роботи РЕБ не виявлено.'>"
+}
+</output_format>
+            `;
+
+            try {
+                const response = await fetch(`https://api.groq.com/openai/v1/chat/completions`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${currentApiKey}`
+                    },
+                    body: JSON.stringify({
+                        model: "meta-llama/llama-4-scout-17b-16e-instruct",
+                        messages: [
+                            {
+                                role: "user",
+                                content: [
+                                    { type: "text", text: promptText },
+                                    { type: "image_url", image_url: { url: `data:${mimeType};base64,${base64Data}` } }
+                                ]
+                            }
+                        ],
+                        response_format: { type: "json_object" },
+                        temperature: 0.1
+                    })
+                });
+
+                if (!response.ok) {
+                    let errText = response.statusText;
+                    try {
+                        const errData = await response.json();
+                        if (errData.error && errData.error.message) errText = errData.error.message;
+                    } catch (e) { }
+                    throw new Error(`API Error ${response.status}: ${errText}`);
+                }
+
+                const data = await response.json();
+                const rawText = data.choices[0].message.content;
+
+                // Extract only the JSON block (ignores introductory conversational text)
+                const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+                if (!jsonMatch) {
+                    throw new Error("Не вдалося знайти JSON у відповіді. Отримано: " + rawText.substring(0, 50));
+                }
+                const jsonStr = jsonMatch[0];
+                const rawAiData = JSON.parse(jsonStr);
+
+                // Sanitize AI outputs to ensure they are float MHz
+                const sanitizeFreq = (val, isSpan = false) => {
+                    if (val === null || val === undefined || val === '') return null;
+                    let str = String(val).toLowerCase().replace(/,/g, '.');
+                    let mult = 1;
+                    if (str.includes('g') || str.includes('ггц')) mult = 1000;
+                    else if (str.includes('k') || str.includes('кгц')) mult = 0.001;
+                    let numMatch = str.match(/-?\d+(\.\d+)?/);
+                    if (!numMatch) return null;
+                    let num = parseFloat(numMatch[0]);
+
+                    if (!isSpan && num > 0 && num < 10 && mult === 1) mult = 1000;
+                    return num * mult;
+                };
+
+                const aiData = {
+                    ...rawAiData,
+                    center_freq: sanitizeFreq(rawAiData.center_freq),
+                    span: sanitizeFreq(rawAiData.span, true),
+                    frequency_start: sanitizeFreq(rawAiData.frequency_start),
+                    frequency_end: sanitizeFreq(rawAiData.frequency_end)
+                };
+
+                if (Array.isArray(rawAiData.peaks)) {
+                    aiData.peaks = rawAiData.peaks.map(p => sanitizeFreq(p)).filter(p => p !== null);
+                } else if (rawAiData.peaks) {
+                    aiData.peaks = [sanitizeFreq(rawAiData.peaks)].filter(p => p !== null);
+                }
+
+                // Call matching logic
+                processMatches(aiData);
+
+            } catch (err) {
+                console.error("AI Error", err);
+                document.getElementById('loader').style.display = 'none';
+                document.getElementById('scanLine').style.display = 'none';
+                document.getElementById('idleState').style.display = 'block';
+                document.getElementById('idleState').innerHTML = `
+                    <p style="color:var(--danger)">Помилка аналізу. Перевірте API ключ або підключення.</p>
+                    <p style="font-size: 0.8rem">${err.message}</p>
+                `;
+            }
+        }
+
+        // Логіка співставлення
+        function processMatches(aiData) {
+            document.getElementById('loader').style.display = 'none';
+            document.getElementById('scanLine').style.display = 'none';
+            const resContainer = document.getElementById('resultsContent');
+            resContainer.innerHTML = '';
+
+            // Build AI extraction summary
+            if (aiData.center_freq) {
+                const aiCard = document.createElement('div');
+                aiCard.className = 'result-card info';
+                aiCard.innerHTML = `
+                    <div class="result-header">
+                        <div class="result-title">👁️ Розпізнано параметри екрану</div>
+                    </div>
+                    <div class="freq-data" style="margin-bottom:0">
+                        <div>Діапазон: <span>${aiData.frequency_start || '?'} - ${aiData.frequency_end || '?'} МГц</span></div>
+                        <div>Центральна: <span>${aiData.center_freq || '?'} МГц</span></div>
+                        <div>Span (Смуга): <span>${aiData.span || '?'} МГц</span></div>
+                        <div>Форма: <span style="text-transform:capitalize">${aiData.signal_shape || 'Не вказано'}</span></div>
+                        <div>Виявлено піки на: <span>${aiData.peaks ? aiData.peaks.join(', ') + ' МГц' : 'Відсутні'}</span></div>
+                    </div>
+                `;
+
+                if (aiData.ai_analysis) {
+                    aiCard.innerHTML += `
+                        <div class="desc" style="margin-top: 1rem; border-top: 1px dashed var(--secondary); padding-top: 1rem; color: var(--text-main);">
+                            <strong>🧠 Порада для оператора РЕР:</strong><br>
+                            ${aiData.ai_analysis}
+                        </div>
+                    `;
+                }
+
+                resContainer.appendChild(aiCard);
+            }
+
+            // Find matches
+            let matches = [];
+            const checkFreqs = aiData.peaks && aiData.peaks.length > 0 ? aiData.peaks : (aiData.center_freq ? [aiData.center_freq] : []);
+
+            checkFreqs.forEach(f => {
+                let freqMatches = [];
+                signalDB.forEach(sig => {
+                    sig.ranges.forEach(range => {
+                        // Якщо частота потрапляє в діапазон бази + допуск
+                        if (f >= range[0] - 2 && f <= range[1] + 2) {
+                            // Calculate confidence based on how close it is to center or if we have span matching
+                            let conf = 70;
+                            if (f >= range[0] && f <= range[1]) conf += 20;
+                            // Check rough bandwidth match if ai span is known
+                            if (aiData.span > 0) {
+                                if (aiData.span >= sig.bw[0] && aiData.span <= sig.bw[sig.bw.length - 1] * 2) conf += 10;
+                            }
+
+                            freqMatches.push({ db: sig, conf: Math.min(conf, 99), matchedFreq: f });
+                        }
+                    });
+                });
+
+                // Зберігаємо лише один найімовірніший варіант для КОЖНОЇ виявленої частоти
+                if (freqMatches.length > 0) {
+                    freqMatches.sort((a, b) => b.conf - a.conf);
+                    let bestMatch = freqMatches[0];
+                    if (!matches.find(m => m.db.id === bestMatch.db.id && m.matchedFreq === bestMatch.matchedFreq)) {
+                        matches.push(bestMatch);
+                    }
+                }
+            });
+
+            // Render Matches
+            if (matches.length === 0) {
+                resContainer.innerHTML += `
+                    <div class="result-card">
+                        <div class="result-header">
+                            <div class="result-title">❓ Невідомий сигнал</div>
+                        </div>
+                        <p class="desc">У базі даних не знайдено відомих сигнатур для частоти ${checkFreqs.join(', ')} МГц.</p>
+                        <div class="recommendation" style="border-left-color: var(--text-muted)">
+                            Можливо це новий тип зв'язку, цивільна радіостанція або сигнал сильно спотворений.
+                        </div>
+                    </div>
+                `;
+            } else {
+                // Сортування за впевненістю (щоб найнебезпечніші або найточніші були зверху)
+                matches.sort((a, b) => b.conf - a.conf);
+
+                matches.forEach(m => {
+                    const card = document.createElement('div');
+                    card.className = `result-card ${m.db.threat === 'danger' ? 'danger' : m.db.threat === 'warning' ? 'warning' : 'info'}`;
+
+                    let icon = '📡';
+                    if (m.db.category === 'FPV') icon = '🚁';
+                    if (m.db.category === 'Mil-UAV') icon = '✈️';
+                    if (m.db.category === 'EW') icon = '⚡';
+                    if (m.db.category === 'Radar') icon = '📡';
+
+                    let threatText = "ІНФО";
+                    if (m.db.threat === 'danger') threatText = "НЕБЕЗПЕКА DANGER";
+                    if (m.db.threat === 'warning') threatText = "УВАГА WARNING";
+
+                    card.innerHTML = `
+                        <div class="result-header">
+                            <div class="result-title">${icon} ${m.db.name}</div>
+                            <div class="confidence">Збіг: ${m.conf}%</div>
+                        </div>
+                        <div class="freq-data">
+                            <div>Зафіксована: <span>~${m.matchedFreq.toFixed(1)} МГц</span></div>
+                            <div>Типова смуга: <span>${m.db.bw.join('-')} МГц</span></div>
+                            <div>Категорія: <span>${m.db.category} | ${m.db.type}</span></div>
+                            <div style="color: ${m.db.threat === 'danger' ? 'var(--danger)' : m.db.threat === 'warning' ? 'var(--warning)' : 'var(--secondary)'}; font-weight: bold;">
+                                Статус: ${threatText}
+                            </div>
+                        </div>
+                        <p class="desc">${m.db.desc}</p>
+                        <div class="recommendation" style="border-left-color: ${m.db.threat === 'danger' ? 'var(--danger)' : 'var(--primary)'}">
+                            <strong>Рекомендація:</strong><br>
+                            ${m.db.rec}
+                        </div>
+                    `;
+                    resContainer.appendChild(card);
+                });
+            }
+
+            // Create Messenger-friendly Text Report
+            let reportText = `📢 Розпізнані сигнали\n\n`;
+            if (aiData.frequency_start || aiData.center_freq || aiData.peaks) {
+                reportText += `Діапазон: ${aiData.frequency_start || '?'} - ${aiData.frequency_end || '?'} МГц\n`;
+                reportText += `Центральна: ${aiData.center_freq || '?'} МГц\n`;
+                reportText += `Смуга (Span): ${aiData.span || '?'} МГц\n`;
+                reportText += `Форма: ${aiData.signal_shape || 'Не вказано'}\n`;
+                reportText += `Виявлено піки на: ${aiData.peaks ? aiData.peaks.join(', ') + ' МГц' : 'Відсутні'}\n\n`;
+
+                const allowedCategories = ['UAV', 'Radar', 'COMMS', 'EW'];
+                const filteredMatches = matches.filter(m => allowedCategories.includes(m.db.category));
+
+                if (filteredMatches.length > 0) {
+                    reportText += `🛑 Ймовірні засоби (Увага):\n`;
+                    filteredMatches.forEach(m => {
+                        reportText += `- ${m.db.name} (~${m.matchedFreq.toFixed(1)} МГц)\n`;
+                    });
+                    reportText += `\n`;
+                }
+            } else {
+                reportText += `Не вдалося розпізнати параметри частот.\n\n`;
+            }
+
+            reportText += `--- \nЗгенеровано аналізатором TinySA Ultra`;
+
+            // Append Copy Button
+            const copyBtnContainer = document.createElement('div');
+            copyBtnContainer.style.marginTop = "1rem";
+            copyBtnContainer.style.textAlign = "center";
+            copyBtnContainer.innerHTML = `<button class="btn btn-primary" style="width: 100%; justify-content: center; padding: 1rem; font-size: 1.1rem;"><svg style="margin-right: 8px" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg> Скопіювати звіт (Signal/WhatsApp)</button>`;
+
+            copyBtnContainer.querySelector('button').onclick = () => {
+                const fallbackCopy = () => {
+                    const textArea = document.createElement("textarea");
+                    textArea.value = reportText;
+                    textArea.style.top = "0";
+                    textArea.style.left = "0";
+                    textArea.style.position = "fixed";
+                    document.body.appendChild(textArea);
+                    textArea.focus();
+                    textArea.select();
+                    try {
+                        const successful = document.execCommand('copy');
+                        if (successful) showToast('✅ Звіт скопійовано у буфер обміну!');
+                        else showToast('❌ Помилка: Ваш браузер блокує копіювання', 'error');
+                    } catch (err) {
+                        showToast('❌ Помилка копіювання', 'error');
+                    }
+                    document.body.removeChild(textArea);
+                };
+
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(reportText).then(() => {
+                        showToast('✅ Звіт скопійовано у буфер обміну!');
+                    }).catch(err => fallbackCopy());
+                } else {
+                    fallbackCopy();
+                }
+            };
+
+            resContainer.appendChild(copyBtnContainer);
+
+            resContainer.style.display = 'block';
+        }
+    </script>
+
+    <script>
+        // --- PWA: Service Worker & Install ---
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./sw.js').catch(() => {});
+        }
+
+        let deferredPrompt = null;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            // Show install button in header
+            const installBtn = document.createElement('button');
+            installBtn.className = 'btn';
+            installBtn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Встановити`;
+            installBtn.style.background = 'rgba(0,212,170,0.15)';
+            installBtn.style.borderColor = 'var(--primary)';
+            installBtn.onclick = async () => {
+                if (deferredPrompt) {
+                    deferredPrompt.prompt();
+                    const { outcome } = await deferredPrompt.userChoice;
+                    if (outcome === 'accepted') installBtn.remove();
+                    deferredPrompt = null;
+                }
+            };
+            document.querySelector('header > div:last-child').prepend(installBtn);
+        });
+    </script>
+</body>
+
+</html>
