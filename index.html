@@ -1123,11 +1123,15 @@
                 resContainer.appendChild(aiCard);
             }
 
-            // Шум / Відсутність піків
+            // Визначаємо, чи це "чистий" шум без піків
             const shape = (aiData.signal_shape || '').toLowerCase();
-            const isNoise = shape.includes('шум') || shape.includes('noise') || !aiData.peaks || aiData.peaks.length === 0;
+            const hasPeaks = aiData.peaks && aiData.peaks.length > 0;
+            const isWidebandNoise = shape.includes('широкосмуговий');
+            
+            // "Чистим шумом" вважаємо тільки ситуацію без піків і без ознак РЕБ-шуму
+            const isPureNoise = !hasPeaks && !isWidebandNoise;
 
-            if (isNoise) {
+            if (isPureNoise) {
                 resContainer.innerHTML += `
                     <div class="result-card" style="border-left-color: var(--text-muted)">
                         <div class="result-header">
@@ -1141,31 +1145,26 @@
                 `;
             }
 
-            // Find matches (only if not pure noise)
+            // Швидкий пошук у базі (завжди проводимо, якщо є піки або це широка "полиця" РЕБ)
             let matches = [];
-            const checkFreqs = aiData.peaks && aiData.peaks.length > 0 ? aiData.peaks : (aiData.center_freq ? [aiData.center_freq] : []);
+            const checkFreqs = hasPeaks ? aiData.peaks : (aiData.center_freq ? [aiData.center_freq] : []);
 
-            if (!isNoise) {
+            if (!isPureNoise || isWidebandNoise) {
                 checkFreqs.forEach(f => {
                     let freqMatches = [];
                     signalDB.forEach(sig => {
                         sig.ranges.forEach(range => {
-                            // Якщо частота потрапляє в діапазон бази + допуск
                             if (f >= range[0] - 2 && f <= range[1] + 2) {
-                                // Calculate confidence based on how close it is to center or if we have span matching
                                 let conf = 70;
                                 if (f >= range[0] && f <= range[1]) conf += 20;
-                                // Check rough bandwidth match if ai span is known
                                 if (aiData.span > 0) {
                                     if (aiData.span >= sig.bw[0] && aiData.span <= sig.bw[sig.bw.length - 1] * 2) conf += 10;
                                 }
-
                                 freqMatches.push({ db: sig, conf: Math.min(conf, 99), matchedFreq: f });
                             }
                         });
                     });
 
-                    // Зберігаємо лише один найімовірніший варіант для КОЖНОЇ виявленої частоти
                     if (freqMatches.length > 0) {
                         freqMatches.sort((a, b) => b.conf - a.conf);
                         let bestMatch = freqMatches[0];
@@ -1174,10 +1173,16 @@
                         }
                     }
                 });
+
+                // Якщо піків немає, але це широкосмуговий шум - шукаємо саме РЕБ за категорією
+                if (matches.length === 0 && isWidebandNoise) {
+                    const ewNoise = signalDB.find(s => s.id === 'ew_1');
+                    if (ewNoise) matches.push({ db: ewNoise, conf: 85, matchedFreq: aiData.center_freq || 0 });
+                }
             }
 
             // Render Matches
-            if (matches.length === 0 && !isNoise) {
+            if (matches.length === 0 && !isPureNoise) {
                 resContainer.innerHTML += `
                     <div class="result-card">
                         <div class="result-header">
@@ -1245,7 +1250,7 @@
                 reportText += `Форма: ${aiData.signal_shape || 'Не вказано'}\n`;
                 reportText += `Виявлено піки на: ${peaksText}\n\n`;
 
-                if (isNoise) {
+                if (isPureNoise) {
                     reportText += `🍃 Детекцій не виявлено (лише фоновий шум)\n\n`;
                 }
 
