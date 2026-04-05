@@ -1090,16 +1090,24 @@
             if (aiData.center_freq) {
                 const aiCard = document.createElement('div');
                 aiCard.className = 'result-card info';
+                const fStart = aiData.frequency_start ? aiData.frequency_start.toFixed(1) : '?';
+                const fEnd = aiData.frequency_end ? aiData.frequency_end.toFixed(1) : '?';
+                const fCenter = aiData.center_freq ? aiData.center_freq.toFixed(1) : '?';
+                const fSpan = aiData.span ? aiData.span.toFixed(1) : '?';
+                const peaksText = aiData.peaks && aiData.peaks.length > 0
+                    ? aiData.peaks.map(p => p.toFixed(1)).join(', ') + ' МГц'
+                    : 'Відсутні';
+
                 aiCard.innerHTML = `
                     <div class="result-header">
                         <div class="result-title">👁️ Розпізнано параметри екрану</div>
                     </div>
                     <div class="freq-data" style="margin-bottom:0">
-                        <div>Діапазон: <span>${aiData.frequency_start || '?'} - ${aiData.frequency_end || '?'} МГц</span></div>
-                        <div>Центральна: <span>${aiData.center_freq || '?'} МГц</span></div>
-                        <div>Span (Смуга): <span>${aiData.span || '?'} МГц</span></div>
+                        <div>Діапазон: <span>${fStart} - ${fEnd} МГц</span></div>
+                        <div>Центральна: <span>${fCenter} МГц</span></div>
+                        <div>Span (Смуга): <span>${fSpan} МГц</span></div>
                         <div>Форма: <span style="text-transform:capitalize">${aiData.signal_shape || 'Не вказано'}</span></div>
-                        <div>Виявлено піки на: <span>${aiData.peaks ? aiData.peaks.join(', ') + ' МГц' : 'Відсутні'}</span></div>
+                        <div>Виявлено піки на: <span>${peaksText}</span></div>
                     </div>
                 `;
 
@@ -1115,47 +1123,67 @@
                 resContainer.appendChild(aiCard);
             }
 
-            // Find matches
+            // Шум / Відсутність піків
+            const shape = (aiData.signal_shape || '').toLowerCase();
+            const isNoise = shape.includes('шум') || shape.includes('noise') || !aiData.peaks || aiData.peaks.length === 0;
+
+            if (isNoise) {
+                resContainer.innerHTML += `
+                    <div class="result-card" style="border-left-color: var(--text-muted)">
+                        <div class="result-header">
+                            <div class="result-title">🍃 Детекцій не виявлено</div>
+                        </div>
+                        <p class="desc">На зображенні зафіксовано лише фоновий шум або відсутні чітко виражені піки сигналів.</p>
+                        <div class="recommendation" style="border-left-color: var(--text-muted)">
+                            Джерела активного випромінювання (БпЛА, РЕБ) у даному діапазоні не ідентифіковані.
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Find matches (only if not pure noise)
             let matches = [];
             const checkFreqs = aiData.peaks && aiData.peaks.length > 0 ? aiData.peaks : (aiData.center_freq ? [aiData.center_freq] : []);
 
-            checkFreqs.forEach(f => {
-                let freqMatches = [];
-                signalDB.forEach(sig => {
-                    sig.ranges.forEach(range => {
-                        // Якщо частота потрапляє в діапазон бази + допуск
-                        if (f >= range[0] - 2 && f <= range[1] + 2) {
-                            // Calculate confidence based on how close it is to center or if we have span matching
-                            let conf = 70;
-                            if (f >= range[0] && f <= range[1]) conf += 20;
-                            // Check rough bandwidth match if ai span is known
-                            if (aiData.span > 0) {
-                                if (aiData.span >= sig.bw[0] && aiData.span <= sig.bw[sig.bw.length - 1] * 2) conf += 10;
+            if (!isNoise) {
+                checkFreqs.forEach(f => {
+                    let freqMatches = [];
+                    signalDB.forEach(sig => {
+                        sig.ranges.forEach(range => {
+                            // Якщо частота потрапляє в діапазон бази + допуск
+                            if (f >= range[0] - 2 && f <= range[1] + 2) {
+                                // Calculate confidence based on how close it is to center or if we have span matching
+                                let conf = 70;
+                                if (f >= range[0] && f <= range[1]) conf += 20;
+                                // Check rough bandwidth match if ai span is known
+                                if (aiData.span > 0) {
+                                    if (aiData.span >= sig.bw[0] && aiData.span <= sig.bw[sig.bw.length - 1] * 2) conf += 10;
+                                }
+
+                                freqMatches.push({ db: sig, conf: Math.min(conf, 99), matchedFreq: f });
                             }
-
-                            freqMatches.push({ db: sig, conf: Math.min(conf, 99), matchedFreq: f });
-                        }
+                        });
                     });
-                });
 
-                // Зберігаємо лише один найімовірніший варіант для КОЖНОЇ виявленої частоти
-                if (freqMatches.length > 0) {
-                    freqMatches.sort((a, b) => b.conf - a.conf);
-                    let bestMatch = freqMatches[0];
-                    if (!matches.find(m => m.db.id === bestMatch.db.id && m.matchedFreq === bestMatch.matchedFreq)) {
-                        matches.push(bestMatch);
+                    // Зберігаємо лише один найімовірніший варіант для КОЖНОЇ виявленої частоти
+                    if (freqMatches.length > 0) {
+                        freqMatches.sort((a, b) => b.conf - a.conf);
+                        let bestMatch = freqMatches[0];
+                        if (!matches.find(m => m.db.id === bestMatch.db.id && m.matchedFreq === bestMatch.matchedFreq)) {
+                            matches.push(bestMatch);
+                        }
                     }
-                }
-            });
+                });
+            }
 
             // Render Matches
-            if (matches.length === 0) {
+            if (matches.length === 0 && !isNoise) {
                 resContainer.innerHTML += `
                     <div class="result-card">
                         <div class="result-header">
                             <div class="result-title">❓ Невідомий сигнал</div>
                         </div>
-                        <p class="desc">У базі даних не знайдено відомих сигнатур для частоти ${checkFreqs.join(', ')} МГц.</p>
+                        <p class="desc">У базі даних не знайдено відомих сигнатур для частоти ${checkFreqs.map(f => f.toFixed(1)).join(', ')} МГц.</p>
                         <div class="recommendation" style="border-left-color: var(--text-muted)">
                             Можливо це новий тип зв'язку, цивільна радіостанція або сигнал сильно спотворений.
                         </div>
@@ -1205,11 +1233,21 @@
             // Create Messenger-friendly Text Report
             let reportText = `📢 Розпізнані сигнали\n\n`;
             if (aiData.frequency_start || aiData.center_freq || aiData.peaks) {
-                reportText += `Діапазон: ${aiData.frequency_start || '?'} - ${aiData.frequency_end || '?'} МГц\n`;
-                reportText += `Центральна: ${aiData.center_freq || '?'} МГц\n`;
-                reportText += `Смуга (Span): ${aiData.span || '?'} МГц\n`;
+                const fStart = aiData.frequency_start ? aiData.frequency_start.toFixed(1) : '?';
+                const fEnd = aiData.frequency_end ? aiData.frequency_end.toFixed(1) : '?';
+                const fCenter = aiData.center_freq ? aiData.center_freq.toFixed(1) : '?';
+                const fSpan = aiData.span ? aiData.span.toFixed(1) : '?';
+                const peaksText = aiData.peaks && aiData.peaks.length > 0 ? aiData.peaks.map(p => p.toFixed(1)).join(', ') + ' МГц' : 'Відсутні';
+
+                reportText += `Діапазон: ${fStart} - ${fEnd} МГц\n`;
+                reportText += `Центральна: ${fCenter} МГц\n`;
+                reportText += `Смуга (Span): ${fSpan} МГц\n`;
                 reportText += `Форма: ${aiData.signal_shape || 'Не вказано'}\n`;
-                reportText += `Виявлено піки на: ${aiData.peaks ? aiData.peaks.join(', ') + ' МГц' : 'Відсутні'}\n\n`;
+                reportText += `Виявлено піки на: ${peaksText}\n\n`;
+
+                if (isNoise) {
+                    reportText += `🍃 Детекцій не виявлено (лише фоновий шум)\n\n`;
+                }
 
                 const allowedCategories = ['UAV', 'Radar', 'COMMS', 'EW'];
                 const filteredMatches = matches.filter(m => allowedCategories.includes(m.db.category));
